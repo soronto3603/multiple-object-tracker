@@ -1,8 +1,10 @@
 import math
+from PIL import Image,ImageDraw
+
 class Mask:
-    def __init__(self,x=0,y=0):
-        self.width=None
-        self.height=None
+    def __init__(self,x=0,y=0,width=0,height=0):
+        self.width=width
+        self.height=height
         self.x=x
         self.y=y
 
@@ -28,3 +30,15 @@ class Mask:
     
     def get_distance_to(self,mask):
         return (math.sqrt((self.x-mask.x)**2+(self.y-mask.y)**2))
+
+    def get_difference_size_to(self,mask):
+        return (abs(self.width*self.height-mask.width*mask.height))
+    
+    def load_image(self,path):
+        try:
+            img=Image.open(path)
+        except FileNotFoundError as e:
+            print("FileNotFoundError : {0}".format(e))
+            return None
+        else:
+            return img
