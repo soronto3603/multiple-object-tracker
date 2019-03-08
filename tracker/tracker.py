@@ -59,11 +59,99 @@
 # if __name__ == "__main__":
 #     print("hello")
 
-from tracker.instance.instance import Instance
+from tracker.Mask.mask import Mask
+import json
 
 class Tracker:
-    def __init__(self):
-        pass
-    
+    def __init__(self,json_src=None):
+        self.masks=[]
+        self.json=None
+
+        self.load_json(json_src)
+
+    def sort_masks(self):
+        # 마스크들을 정리함
+        for idx,mask in enumerate(self.masks):
+            mask=self.pick_mask(mask)
+            if mask.activation != 0:
+                continue
+            else:
+                # 합칠 마스크를 찾음
+                # 마스크들을 순회 하면서 가장 유사도가 낮은 대상을 찾음
+                sim_mask=None
+                sim_point=0xffffff
+                sim_mask_idx=None
+                
+                for idx2,mask2 in enumerate(self.masks):
+                    print(idx,":",mask,idx2,":",mask2)
+                    mask2=self.pick_mask(mask2)
+                    
+                    if mask is mask2:
+                        print("두 마스크가 같음")
+                        continue
+
+                    elif mask.activation == mask2.activation:
+                        print("두 마스크의 세대가 같음")
+                        continue
+                    elif mask2.activation == -1:
+                        print("마스크 하나가 비활성화 상태임")
+                        continue
+                    elif mask.there_not_equal(mask2):
+                        print("두마스크의 거리 혹은 라벨이 다름")
+                        continue
+                    
+                    _sim_point=mask.get_similarity_with(mask2)
+                    print(_sim_point,sim_point)
+                    if(_sim_point < sim_point):
+                        sim_point=_sim_point
+                        sim_mask=mask2
+                        sim_mask_idx=idx2
+
+                # 찾았으면
+                if sim_mask != None :
+                    print("합쳐짐",idx,"<-",sim_mask_idx)
+                    self.add_mask_at(sim_mask,idx)
+                    del self.masks[sim_mask_idx]
+                else:
+                    print("합쳐질게 없음")
+
+        for idx,mask in enumerate(self.masks):
+            mask=self.pick_mask(mask)
+            mask.increase_activation()  
+
+
+    def make_mask_from_json(self,masks_info):
+        frame_no=masks_info['frame']
+        img_path="frame_{0}.jpg".format(frame_no)
+        
+        for i in masks_info['info']:
+            mask=Mask(x=i['box'][0],y=i['box'][1],width=i['box'][2]-i['box'][0],height=i['box'][3]-i['box'][1],label=i['label'],src_image="./nascar_Extract/{0}".format(img_path))
+            self.create_mask(mask)
+
+            
+    def load_json(self,json_src):
+        try:
+            with open(json_src) as f:
+                self.json=json.load(f)
+        except FileNotFoundError as e:
+            print("FileNotFoundError : {0}".format(e))
+            raise Exception("JSON is None")
+            return None
+
     def get_result(self):
         return []
+
+    def create_mask(self,mask):
+        mask_index=len(self.masks)
+        self.masks.append([mask])
+        return mask_index
+    
+    def add_mask_at(self,mask,index):
+        self.masks[index].insert(0,mask)
+
+    def pick_mask(self,mask):
+        return mask[0]
+    
+    def __repr__(self):
+        return str(self.masks)
+    
