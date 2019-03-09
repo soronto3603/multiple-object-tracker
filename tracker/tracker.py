@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 # class tracker:
 #     def __init__(self):
 #         self.instances=[]
@@ -63,11 +65,12 @@ from tracker.Mask.mask import Mask
 import json
 
 class Tracker:
-    def __init__(self,json_src=None):
+    def __init__(self,default_path,json_name):
         self.masks=[]
-        self.json=None
+        self.default_path=default_path
+        self.json_path=default_path+"/"+json_name
 
-        self.load_json(json_src)
+        self.load_json(self.json_path)
 
     def sort_masks(self):
         # 마스크들을 정리함
@@ -121,8 +124,10 @@ class Tracker:
 
 
     def make_mask_from_json(self,masks_info):
-        frame_no=masks_info['frame']
-        img_path="frame_{0}.jpg".format(frame_no)
+        # frame_no=masks_info['frame']
+        # img_path="frame_{0}.jpg".format(frame_no)
+        print(masks_info)
+        img_path=masks_info['file_name']
         
         for i in masks_info['info']:
             mask=Mask(x=i['box'][0],y=i['box'][1],width=i['box'][2]-i['box'][0],height=i['box'][3]-i['box'][1],label=i['label'],src_image="./nascar_Extract/{0}".format(img_path))
