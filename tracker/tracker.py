@@ -81,7 +81,6 @@ class Tracker:
 
                 mask_list[0].get_absolute_position( self.currentDirection )
                 print(mask_list[0].locate_x , mask_list[0].locate_y)
-                input()
     def save_json(self):
         # DEL
         # jsonlist=[]
