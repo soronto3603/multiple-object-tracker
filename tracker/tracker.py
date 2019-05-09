@@ -2,6 +2,7 @@ from tracker.Mask.mask import Mask
 from PIL import Image,ImageDraw
 import json
 import datetime
+import math
 
 class Tracker:
     def __init__(self,default_path,json_name,geo_json):
@@ -20,11 +21,31 @@ class Tracker:
         self.idCounter = 1
 
         self.currentTimestamp = None
-
+        self.currentDirection = None
+    def get_absolute_angle(self,p1x,p1y,p2x,p2y):
+        R = math.degrees( math.atan2(p2x - p1x, p2y - p1y) )
+        if ( R < 0 ):
+            return 360 + R
+        return R 
     def run(self):
         for idx,file_info in enumerate(self.json):
 
             self.currentTimestamp = self.geo_json['locations'][idx]
+            if( idx != 0 ):
+                # lat=geo_json['latitude'],lon=geo_json['longitude']
+                p1x = self.geo_json['locations'][idx-1]['latitude']
+                p1y = self.geo_json['locations'][idx-1]['longitude']
+
+                p2x = self.geo_json['locations'][idx]['latitude']
+                p2y = self.geo_json['locations'][idx]['longitude']
+                
+                print("이전좌표")
+                print("p1", p1x,p1y)
+                print("p2",p2x,p2y)
+
+                # self.currentDirection = self.get_absolute_angle(p1x,p1y,p2x,p2y)
+                self.currentDirection = self.get_absolute_angle(p2x,p2y,p1x,p1y)
+                print("이전 좌표와의 방향" , self.currentDirection)
 
             file_name=self.default_path+"/"+file_info['file_name']
             print("===========================>",file_name)
@@ -54,6 +75,13 @@ class Tracker:
             if ( mask_list[0].lat == None or mask_list[0].lon == None):
                 continue
             mask_list[0].get_distance_from_camera_with(mask_list[1])
+            if ( self.currentDirection != None ):
+                print("current direction = ",self.currentDirection)
+                print("entering")
+
+                mask_list[0].get_absolute_position( self.currentDirection )
+                print(mask_list[0].locate_x , mask_list[0].locate_y)
+                input()
     def save_json(self):
         # DEL
         # jsonlist=[]

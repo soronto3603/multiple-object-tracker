@@ -97,11 +97,21 @@ class Mask:
         d = l * ( math.sin(self.angle) * math.sin(t.angle) ) / math.sin(self.angle + t.angle)
         # print(d," = ", l ,self.angle,t.angle,self.angle ,t.angle) 
         self.distance = d
-        # 상대좌표 계산 공식
-        # 이 자리가 아님.
-        # TODO
-        self.locate_x = d * math.sin( self.angle )
-        self.locate_y = d * math.cos( self.angle )
+
+
+
+    def get_absolute_position(self,R):
+        # ( R + r ) 
+        # p3x = p2x + cos( ( R + r ) * PI / 180 ) * D
+        # p3y = p2y + sin( ( R + r ) * PI / 180 ) * D
+        print("distance : ",self.distance)
+
+
+        self.locate_x = self.lat + math.radians( math.cos( ( R + self.angle ) ) ) * self.distance
+        self.locate_y = self.lon + math.radians( math.sin( ( R + self.angle ) ) ) * self.distance
+        print("original position : ")
+        print(self.lat,self.lon)
+
 
 
     def get_angle(self):
