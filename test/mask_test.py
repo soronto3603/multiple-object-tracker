@@ -125,6 +125,32 @@ class MaskTests(unittest.TestCase):
         n_e=mask1.there_not_equal(mask2)
         # then
         self.assertEqual(n_e,True)
+    
+    def test_random_color(self):
+        # get
+        mask1=Mask(x=10,y=10,width=10,height=10,label="car",src_image="./nascar_Extract/frame_0.jpg")
+
+        # when
+
+        # then
+        self.assertIsNotNone(mask1.color)
+    
+    def test_get_image_size(self):
+        mask1=Mask(x=10,y=10,width=10,height=10,label="car",src_image="./nascar_Extract/frame_0.jpg")
+        
+        self.assertIsNotNone(mask1.src_image_width)
+        self.assertIsNotNone(mask1.src_image_height)
+        print(mask1.src_image_width,mask1.src_image_height, "test_get_image_size .. OK")
+    
+    def test_get_angle(self):
+        mask1=Mask(x=10,y=10,width=10,height=10,label="car",src_image="./nascar_Extract/frame_0.jpg")
+
+        self.assertIsNotNone(mask1.angle)
+        print(mask1.angle, "test_get_angle .. OK")
+    
+    def test_get_distance_from_camera_with(self):
+        mask1=Mask(x=10,y=10,width=10,height=10,label="car",src_image="./nascar_Extract/frame_0.jpg")
+        # mask1.get_distance_from_camera_with()
 
 if __name__=="__main__":
     unittest.main()

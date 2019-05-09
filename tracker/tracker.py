@@ -1,81 +1,124 @@
-# -*- coding: utf-8 -*-
-
-# class tracker:
-#     def __init__(self):
-#         self.instances=[]
-#         # RGB Color 분포 유사율
-#         self.histogram_criteria=50
-#         # 크기 유사율
-#         self.size_criteria=50
-#         # 거리 가까운 정도
-#         self.distance_criteria=50
-    
-#     # 새로운 인스턴스
-#     def append_new_instance(self,x):
-#         self.instances.append(x)
-    
-#     # 기존의 인스턴스와 같은 것을 합치고 위치함.
-#     def merge_instance(self,instance_idx,instance):
-#         instance+=self.instances[instance_idx]
-#         self.instances[instance_idx]=instance
-
-#     def distance(self,instance_a,instance_b):
-#         return 1
-    
-#     def histogram(self,instance_a,instance_b):
-#         return 1
-
-#     def size_sim(self,instance_a,instance_b):
-#         return 1
-
-#     def is_one(self,instance_a,instance_b) -> bool:
-#         return (
-#             # 각 인스턴스는 a ^ b = True를 만족해야하고
-#             # 각 인스턴스는 activation > -1 을 만족해야함.
-#             # is_available 은 위의 두사항을 만족하는지 검사함.
-#             instance_a.is_available ^ instance_b.is_available and 
-#             self.distance(instance_a,instance_b) > self.distance_criteria and
-#             self.histogram(instance_a,instance_b) > self.histogram_criteria and
-#             self.size_sim(instance_a,instance_b) > self.size_criteria
-#         )
-
-#     def merge(self,new_instances):
-#         if len(self.instances) == 0:
-#             for instance in new_instances:
-#                 self.append_new_instance(instance)
-#         elif len(self.instance) > 0:
-#             for new_instance in new_instances:
-#                 for idx,org_instance in enumerate(self.instances):
-#                     # 첫번째 항목이 최근에 합쳐진 인스턴스
-#                     org_instance=org_instance[0]
-                    
-#                     if is_one(new_instance,org_instance):
-#                         self.merge_instance(idx,new_instance)
-#                         # 이번 분기에서 새로운 인스턴스를 합쳤기 때문에 반복을 끝냄.
-#                         break
-#         for instance in self.instances:
-#             instance=instance[0]
-#             if instance.activation is not -1
-#                 instance.activation+=1
-
-# if __name__ == "__main__":
-#     print("hello")
-
 from tracker.Mask.mask import Mask
+from PIL import Image,ImageDraw
 import json
+import datetime
 
 class Tracker:
-    def __init__(self,default_path,json_name):
+    def __init__(self,default_path,json_name,geo_json):
         self.masks=[]
         self.default_path=default_path
         self.json_path=default_path+"/"+json_name
 
         self.load_json(self.json_path)
+        self.load_geo_json(default_path+"/"+geo_json)
+
+        self.save_file_index_no=0
+        # activation max val
+        self.ACTIVATION_MAX = 3
+
+        self.saveJsonData = []
+        self.idCounter = 1
+
+        self.currentTimestamp = None
+
+    def run(self):
+        for idx,file_info in enumerate(self.json):
+
+            self.currentTimestamp = self.geo_json['locations'][idx]
+
+            file_name=self.default_path+"/"+file_info['file_name']
+            print("===========================>",file_name)
+            self.make_mask_from_json(file_name,file_info,self.geo_json['locations'][idx])
+            self.sort_masks()
+            self.figure_distance()
+
+            self.writeJson()
+
+            # output image
+            self.display_current_figure(file_name)
+        
+        # print for debuging
+        for m in self.masks:
+            print(m)
+        print("TOTAL:",str(len(self.masks)))
+        self.save_json()
+    def writeJson(self):
+        for _,mask in enumerate(self.masks):
+            mask=self.pick_mask(mask)
+            if( mask.timestamp == self.currentTimestamp ): 
+                pass
+    def figure_distance(self):
+        for mask_list in self.masks:
+            if ( len(mask_list) < 2 ):
+                continue
+            if ( mask_list[0].lat == None or mask_list[0].lon == None):
+                continue
+            mask_list[0].get_distance_from_camera_with(mask_list[1])
+    def save_json(self):
+        # DEL
+        # jsonlist=[]
+        # for m in self.masks:
+        #     m=self.pick_mask(m)
+        #     jsonlist.append(m.to_dict())
+        #     # return {"label":self.label,"x":self.locate_x,"y":self.locate_y,"lat":self.lat,"lon":self.lon}
+
+
+        with open('data.json', 'w') as outfile:
+            json.dump(self.saveJsonData, outfile)
+    
+    def display_current_figure(self,image_path):
+        main_image = Image.open(image_path).convert("RGB").transpose(Image.FLIP_LEFT_RIGHT).transpose(Image.ROTATE_90)
+        main_image_draw = ImageDraw.Draw(main_image)
+        for mask_list in self.masks:
+
+            main_color = mask_list[0].color
+            
+            
+            # ##### 모든 인스턴스의 네모를 표시 & 라벨을 표시 & 거리를 표시
+            # for mask in mask_list:
+            #     print("Mask DRAW=============")
+            #     main_image_draw.rectangle(((mask.x,mask.y),(mask.x+mask.width,mask.y+mask.height)),outline=main_color,width=5)
+            #     main_image_draw.text((mask.x,mask.y),mask.label)
+            #     try:
+            #         main_image_draw.text((mask.x,mask.y+10),str(round(mask.distance,2)))
+            #     except TypeError as e:
+            #         print("FileNotFoundError : {0} \n 인스턴스의 가장 끝 이미지는 계산되지 않습니다.".format(e))
+            #     print((mask.x,mask.y),(mask.x+mask.width,mask.y+mask.height))
+
+            # ##### 각 첫번째의 인스턴스의 네모를 표시 & 라벨을 표시 & 거리를 표시
+            # ##### 나머지 인스턴스를 선으로 표시
+
+            for idx,mask in enumerate(mask_list):
+                # 비활성화된 객체들은 표시하지 않음
+                if( mask.activation == -1 ):
+                    continue
+                print("Mask DRAW=============")
+                if( idx == 0 ):
+                    try:
+                        main_image_draw.text((mask.x,mask.y+10),str(round(mask.locate_x,5))+", "+str(round(mask.locate_y,5)))
+                        main_image_draw.text((mask.x,mask.y+20),str(round(mask.distance*1000))+":::"+str(round(mask.distance,5)))
+                        main_image_draw.text((mask.x,mask.y+30),"ACTIVATION:"+str(mask.activation))
+                    except TypeError as e:
+                        print("FileNotFoundError : {0} \n 인스턴스의 가장 끝 이미지는 계산되지 않습니다.".format(e))
+                    
+                if( idx == len(mask_list)-1 ):
+                    main_image_draw.rectangle(((mask.x,mask.y),(mask.x+mask.width,mask.y+mask.height)),outline=main_color,width=2)
+                    # main_image_draw.text((mask.x,mask.y),mask.label)
+                    # print((mask.x,mask.y),(mask.x+mask.width,mask.y+mask.height))
+                else:
+                    main_image_draw.rectangle(((mask.x+mask.width/2-2,mask.y+mask.height/2-2),(mask.x+mask.width/2+2,mask.y+mask.height/2+2)),outline=main_color,width=2)
+                    main_image_draw.line((mask.x+mask.width/2,mask.y+mask.height/2,mask_list[idx+1].x+mask_list[idx+1].width/2,mask_list[idx+1].y+mask_list[idx+1].height/2),fill=main_color,width=5)
+        now=datetime.datetime.now()
+        main_image.save("./results/test"+now.strftime("%Y%m%d%H%M%S")+"_"+str(self.save_file_index_no)+".jpg")
+        self.save_file_index_no+=1
 
     def sort_masks(self):
         # 마스크들을 정리함
-        for idx,mask in enumerate(self.masks):
-            mask=self.pick_mask(mask)
+        idx=-1
+        while( idx+1 < len(self.masks)):
+            idx+=1
+            mask = self.masks[idx]
+            mask = self.pick_mask(mask)
             if mask.activation != 0:
                 continue
             else:
@@ -93,13 +136,13 @@ class Tracker:
                         print("두 마스크가 같음")
                         continue
 
-                    elif mask.activation == mask2.activation:
+                    if mask.activation == mask2.activation:
                         print("두 마스크의 세대가 같음")
                         continue
-                    elif mask2.activation == -1:
+                    if mask2.activation == -1:
                         print("마스크 하나가 비활성화 상태임")
                         continue
-                    elif mask.there_not_equal(mask2):
+                    if mask.there_not_equal(mask2):
                         print("두마스크의 거리 혹은 라벨이 다름")
                         continue
                     
@@ -115,23 +158,36 @@ class Tracker:
                     print("합쳐짐",idx,"<-",sim_mask_idx)
                     self.add_mask_at(sim_mask,idx)
                     del self.masks[sim_mask_idx]
+                    idx-=1
                 else:
                     print("합쳐질게 없음")
 
-        for idx,mask in enumerate(self.masks):
+        for _,mask in enumerate(self.masks):
             mask=self.pick_mask(mask)
+            if( mask.activation == -1 ):
+                continue
             mask.increase_activation()  
+            if( mask.activation >= self.ACTIVATION_MAX ):
+                mask.disactivation()
+        
 
-
-    def make_mask_from_json(self,masks_info):
+    def make_mask_from_json(self,file_name,json,geo_json=None):
         # frame_no=masks_info['frame']
         # img_path="frame_{0}.jpg".format(frame_no)
-        print(masks_info)
-        img_path=masks_info['file_name']
-        
-        for i in masks_info['info']:
-            mask=Mask(x=i['box'][0],y=i['box'][1],width=i['box'][2]-i['box'][0],height=i['box'][3]-i['box'][1],label=i['label'],src_image="./nascar_Extract/{0}".format(img_path))
-            self.create_mask(mask)
+        if(geo_json == None):
+            print("위치정보가 없습니다. 거리를 계산할 수 없습니다.")
+            for i in json['infos']:
+                mask=Mask(id=self.idCounter,x=i['box'][0],y=i['box'][1],width=i['box'][2]-i['box'][0],height=i['box'][3]-i['box'][1],label=i['label'],src_image="{0}".format(file_name))
+                self.create_mask(mask)
+            
+        # else:
+        #     print(geo_json)
+        #     raise Exception(123)
+            # {'course': 313.4961853027344, 'timestamp': 1490565865000, 'latitude': 37.782350103962116, 'speed': 0.0, 'longitude': -122.40737524281286, 'accuracy': 10.0}
+        else:
+            for i in json['infos']:
+                mask=Mask(id=self.idCounter,x=i['box'][0],y=i['box'][1],width=i['box'][2]-i['box'][0],height=i['box'][3]-i['box'][1],label=i['label'],src_image="{0}".format(file_name),lat=geo_json['latitude'],lon=geo_json['longitude'],timestamp=geo_json['timestamp'])
+                self.create_mask(mask)
 
             
     def load_json(self,json_src):
@@ -141,7 +197,14 @@ class Tracker:
         except FileNotFoundError as e:
             print("FileNotFoundError : {0}".format(e))
             raise Exception("JSON is None")
-            return None
+
+    def load_geo_json(self,geo_json):
+        try:
+            with open(geo_json) as f:
+                self.geo_json=json.load(f)
+        except FileNotFoundError as e:
+            print("FileNotFoundError : {0}".format(e))
+            raise Exception("JSON is None")
 
     def get_result(self):
         return []

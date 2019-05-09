@@ -1,0 +1,5 @@
+#done
+video ->         cut-video     ->     jpg-images ->    mask-RCNN  -> masked-images
+video-info ->                   video-infos      ->    mask-RCNN  -> 
+
+#todo
