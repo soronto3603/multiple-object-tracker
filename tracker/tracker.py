@@ -15,13 +15,33 @@ class Tracker:
 
         self.save_file_index_no=0
         # activation max val
-        self.ACTIVATION_MAX = 3
+        self.ACTIVATION_MAX = 4
 
-        self.saveJsonData = []
-        self.idCounter = 1
+        self.saveJsonData = {}
+        self.idCount = 0
 
         self.currentTimestamp = None
         self.currentDirection = None
+    def idCounter(self):
+        self.idCount+=1
+        return self.idCount
+
+    def saveJsonDataInit(self):
+        self.saveJsonData["@id"]=1003
+        self.saveJsonData["type"]="MovingFeature"
+        self.saveJsonData["bbox"]=[150.0,50.0,170.0,60.0]
+        self.saveJsonData["stBoundedBy"]={}
+        self.saveJsonData["properties"]={}
+        self.saveJsonData["geometry"]={}
+        self.saveJsonData["temporalGeometry"]={
+            "name":"mgeo",
+            "type":"MovingVideo",
+            "values":[
+
+            ]
+        }
+
+
     def get_absolute_angle(self,p1x,p1y,p2x,p2y):
         R = math.degrees( math.atan2(p2x - p1x, p2y - p1y) )
         if ( R < 0 ):
@@ -53,7 +73,10 @@ class Tracker:
             self.sort_masks()
             self.figure_distance()
 
+            print(self.masks)
+            # input()
             self.writeJson()
+
 
             # output image
             self.display_current_figure(file_name)
@@ -183,7 +206,11 @@ class Tracker:
                 # 찾았으면
                 if sim_mask != None :
                     print("합쳐짐",idx,"<-",sim_mask_idx)
+                    print(sim_mask.id , self.masks[idx][0].id )
+                    # self.masks[idx][0].id = self.masks[sim_mask_idx][0].id
+                    # input()
                     self.add_mask_at(sim_mask,idx)
+                    
                     del self.masks[sim_mask_idx]
                     idx-=1
                 else:
@@ -204,7 +231,7 @@ class Tracker:
         if(geo_json == None):
             print("위치정보가 없습니다. 거리를 계산할 수 없습니다.")
             for i in json['infos']:
-                mask=Mask(id=self.idCounter,x=i['box'][0],y=i['box'][1],width=i['box'][2]-i['box'][0],height=i['box'][3]-i['box'][1],label=i['label'],src_image="{0}".format(file_name))
+                mask=Mask(id=self.idCounter(),x=i['box'][0],y=i['box'][1],width=i['box'][2]-i['box'][0],height=i['box'][3]-i['box'][1],label=i['label'],src_image="{0}".format(file_name))
                 self.create_mask(mask)
             
         # else:
@@ -213,7 +240,7 @@ class Tracker:
             # {'course': 313.4961853027344, 'timestamp': 1490565865000, 'latitude': 37.782350103962116, 'speed': 0.0, 'longitude': -122.40737524281286, 'accuracy': 10.0}
         else:
             for i in json['infos']:
-                mask=Mask(id=self.idCounter,x=i['box'][0],y=i['box'][1],width=i['box'][2]-i['box'][0],height=i['box'][3]-i['box'][1],label=i['label'],src_image="{0}".format(file_name),lat=geo_json['latitude'],lon=geo_json['longitude'],timestamp=geo_json['timestamp'])
+                mask=Mask(id=self.idCounter(),x=i['box'][0],y=i['box'][1],width=i['box'][2]-i['box'][0],height=i['box'][3]-i['box'][1],label=i['label'],src_image="{0}".format(file_name),lat=geo_json['latitude'],lon=geo_json['longitude'],timestamp=geo_json['timestamp'])
                 self.create_mask(mask)
 
             
@@ -242,7 +269,10 @@ class Tracker:
         return mask_index
     
     def add_mask_at(self,mask,index):
+        print(self.masks[index])
         self.masks[index].insert(0,mask)
+        self.masks[index][0] = self.masks[index][1]
+        print(self.masks[index])
 
     def pick_mask(self,mask):
         return mask[0]

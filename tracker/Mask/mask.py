@@ -5,7 +5,11 @@ import random
 
 
 class Mask:
-    def __init__(self,id=None,x=0,y=0,width=0,height=0,label=None,src_image="",lat=None,lon=None,timestamp=None):
+    def __init__(self,id=0,x=0,y=0,width=0,height=0,label=None,src_image="",lat=None,lon=None,timestamp=None):
+        # if(label):
+        #     self.id = str(id)
+        # else:
+        #     self.id = label + str(id)
         self.id = id
 
         self.width=width
@@ -93,8 +97,10 @@ class Mask:
         l = self.get_distance_by_lat_long(t)
         
 
-        
-        d = l * ( math.sin(self.angle) * math.sin(t.angle) ) / math.sin(self.angle + t.angle)
+        if( math.sin(self.angle + t.angle) == 0 ):
+            d = -1
+        else:
+            d = l * ( math.sin(self.angle) * math.sin(t.angle) ) / math.sin(self.angle + t.angle)
         # print(d," = ", l ,self.angle,t.angle,self.angle ,t.angle) 
         self.distance = d
 
@@ -222,4 +228,4 @@ class Mask:
         return image.transpose(Image.FLIP_LEFT_RIGHT).transpose(Image.ROTATE_90)
 
     def __repr__(self):
-        return "x:{0} y:{1} h:{2} w:{3} label:{4} activation:{5}".format(self.x,self.y,self.height,self.width,self.label,self.activation)
+        return "id:{6} x:{0} y:{1} h:{2} w:{3} label:{4} activation:{5} \n".format(self.x,self.y,self.height,self.width,self.label,self.activation,self.id)
