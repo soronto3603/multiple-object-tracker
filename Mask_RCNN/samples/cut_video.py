@@ -2,10 +2,11 @@ from scipy import ndimage
 import cv2
 
 class Movie:
-    def cut(self, file_url, frame_set=None, rotation=0):
+    def cut(self, file_url,resultPath, frame_set=None, rotation=0):
         print(file_url + " 파일의 영상을 자르기를 시작합니다.")
         if file_url is not None:
             cap = cv2.VideoCapture(file_url)
+            print("1!::",cap.get(5))
             frame_rate = int(cap.get(5))
             if frame_set is None:
                 frame_set = frame_rate
@@ -17,9 +18,13 @@ class Movie:
             if (cap.isOpened() == False):
                 print("Error opening video stream or file")
             frame_num = 0
+            print(frame_rate)
+            if(frame_rate == 0):
+                frame_rate = 1 
             frame_sec = (1000 * frame_set) / frame_rate
             sec = 0
             index = 0
+            print(resultPath)
             while (cap.isOpened()):
                 ret, frame = cap.read()
                 if ret is True:
@@ -27,7 +32,7 @@ class Movie:
                         frame = ndimage.rotate(frame, rotation)
                         sec_ = int((sec+frame_sec)/1000)
                         print("작업 : " + str(sec_) + "s")
-                        cv2.imwrite(file_path+"\\"+file_name+str(index)+".jpg" ,frame)
+                        cv2.imwrite(resultPath+file_name+str(index)+".jpg" ,frame)
                         index+=1
                         sec += frame_sec
                 else:
@@ -41,5 +46,5 @@ class Movie:
 
 
 
-m=Movie()
-m.cut("../dataset/vdd/video/0a0c3694-f3444902.mov",frame_set=1,rotation=90)
+# m=Movie()
+# m.cut("../dataset/vdd/video/0a0c3694-f3444902.mov",frame_set=1,rotation=90)

@@ -4,6 +4,11 @@ import json
 import datetime
 import math
 
+import json
+import gpxpy
+import gpxpy.gpx
+import time
+
 class Tracker:
     def __init__(self,default_path,json_name,geo_json):
         self.masks=[]
@@ -15,7 +20,7 @@ class Tracker:
 
         self.save_file_index_no=0
         # activation max val
-        self.ACTIVATION_MAX = 4
+        self.ACTIVATION_MAX = 10
 
         self.saveJsonData = {}
         self.idCount = 0
@@ -41,23 +46,30 @@ class Tracker:
             ]
         }
 
-
     def get_absolute_angle(self,p1x,p1y,p2x,p2y):
         R = math.degrees( math.atan2(p2x - p1x, p2y - p1y) )
         if ( R < 0 ):
             return 360 + R
         return R 
     def run(self):
+        self.saveJsonDataInit()
         for idx,file_info in enumerate(self.json):
 
-            self.currentTimestamp = self.geo_json['locations'][idx]
+            # self.currentTimestamp = self.geo_json['locations'][idx]["timestamp"]
+            self.geo_json[idx].time = time.mktime(self.geo_json[idx].time.timetuple())
+            self.currentTimestamp = self.geo_json[idx].time
+            
             if( idx != 0 ):
                 # lat=geo_json['latitude'],lon=geo_json['longitude']
-                p1x = self.geo_json['locations'][idx-1]['latitude']
-                p1y = self.geo_json['locations'][idx-1]['longitude']
+                # p1x = self.geo_json['locations'][idx-1]['latitude']
+                # p1y = self.geo_json['locations'][idx-1]['longitude']
+                p1x = self.geo_json[idx-1].latitude
+                p1y = self.geo_json[idx-1].longitude
 
-                p2x = self.geo_json['locations'][idx]['latitude']
-                p2y = self.geo_json['locations'][idx]['longitude']
+                # p2x = self.geo_json['locations'][idx]['latitude']
+                # p2y = self.geo_json['locations'][idx]['longitude']
+                p2x = self.geo_json[idx].latitude
+                p2y = self.geo_json[idx].longitude
                 
                 print("이전좌표")
                 print("p1", p1x,p1y)
@@ -69,13 +81,15 @@ class Tracker:
 
             file_name=self.default_path+"/"+file_info['file_name']
             print("===========================>",file_name)
-            self.make_mask_from_json(file_name,file_info,self.geo_json['locations'][idx])
+            # self.make_mask_from_json(file_name,file_info,self.geo_json['locations'][idx])
+            self.make_mask_from_json(file_name,file_info,self.geo_json[idx])
             self.sort_masks()
             self.figure_distance()
 
             print(self.masks)
             # input()
-            self.writeJson()
+            # self.writeJson(self.currentTimestamp,self.geo_json['locations'][idx]['longitude'],self.geo_json['locations'][idx]['latitude'])
+            self.writeJson(self.currentTimestamp,self.geo_json[idx].longitude,self.geo_json[idx].latitude)
 
 
             # output image
@@ -86,17 +100,48 @@ class Tracker:
             print(m)
         print("TOTAL:",str(len(self.masks)))
         self.save_json()
-    def writeJson(self):
+    def writeJson(self,timestamp,lon,lat):
+
+
+        values={
+            "type":"MovingFrame",
+            "uri":"123",
+            "timestamp":timestamp,
+            "altitude":123,
+            "lon":lon,
+            "lat":lat,
+            "annotations":[
+
+            ]
+        }
         for _,mask in enumerate(self.masks):
             mask=self.pick_mask(mask)
-            if( mask.timestamp == self.currentTimestamp ): 
-                pass
+            mask_info = {
+                "id":mask.id,
+                "areaInImage":{
+                    "type":"Polygon",
+                    "coordinates":[
+
+                    ]
+                },
+                "annotationText":mask.label,
+                "annotationFile":"",
+                "annotationImage":"",
+                "lon":mask.locate_x,
+                "lat":mask.locate_y
+            }
+            values["annotations"].append(mask_info)
+
+        self.saveJsonData["temporalGeometry"]["values"].append(values)
+        # input()
+        
     def figure_distance(self):
         for mask_list in self.masks:
             if ( len(mask_list) < 2 ):
                 continue
             if ( mask_list[0].lat == None or mask_list[0].lon == None):
                 continue
+
             mask_list[0].get_distance_from_camera_with(mask_list[1])
             if ( self.currentDirection != None ):
                 print("current direction = ",self.currentDirection)
@@ -104,6 +149,10 @@ class Tracker:
 
                 mask_list[0].get_absolute_position( self.currentDirection )
                 print(mask_list[0].locate_x , mask_list[0].locate_y)
+                if ( mask_list[len(mask_list)-1].is_center ):
+                    im = {"x":mask_list[len(mask_list)-1].x,"y":mask_list[len(mask_list)-1].y,"w":mask_list[len(mask_list)-1].width,"h":mask_list[len(mask_list)-1].height}
+                    imgs = {"width":mask_list[len(mask_list)-1].src_image_width,"height":mask_list[len(mask_list)-1].src_image_height}
+                    mask_list[len(mask_list)-1].get_distance_vertical_angle(im,imgs)
     def save_json(self):
         # DEL
         # jsonlist=[]
@@ -113,7 +162,7 @@ class Tracker:
         #     # return {"label":self.label,"x":self.locate_x,"y":self.locate_y,"lat":self.lat,"lon":self.lon}
 
 
-        with open('data.json', 'w') as outfile:
+        with open(self.default_path+'/data.json', 'w') as outfile:
             json.dump(self.saveJsonData, outfile)
     
     def display_current_figure(self,image_path):
@@ -192,6 +241,8 @@ class Tracker:
                     if mask2.activation == -1:
                         print("마스크 하나가 비활성화 상태임")
                         continue
+                    if mask2.activation == -2:
+                        continue
                     if mask.there_not_equal(mask2):
                         print("두마스크의 거리 혹은 라벨이 다름")
                         continue
@@ -210,8 +261,7 @@ class Tracker:
                     # self.masks[idx][0].id = self.masks[sim_mask_idx][0].id
                     # input()
                     self.add_mask_at(sim_mask,idx)
-                    
-                    del self.masks[sim_mask_idx]
+                    self.masks[sim_mask_idx][0].activation = -2
                     idx-=1
                 else:
                     print("합쳐질게 없음")
@@ -240,7 +290,7 @@ class Tracker:
             # {'course': 313.4961853027344, 'timestamp': 1490565865000, 'latitude': 37.782350103962116, 'speed': 0.0, 'longitude': -122.40737524281286, 'accuracy': 10.0}
         else:
             for i in json['infos']:
-                mask=Mask(id=self.idCounter(),x=i['box'][0],y=i['box'][1],width=i['box'][2]-i['box'][0],height=i['box'][3]-i['box'][1],label=i['label'],src_image="{0}".format(file_name),lat=geo_json['latitude'],lon=geo_json['longitude'],timestamp=geo_json['timestamp'])
+                mask=Mask(id=self.idCounter(),x=i['box'][0],y=i['box'][1],width=i['box'][2]-i['box'][0],height=i['box'][3]-i['box'][1],label=i['label'],src_image="{0}".format(file_name),lat=geo_json.latitude,lon=geo_json.longitude,timestamp=geo_json.time)
                 self.create_mask(mask)
 
             
@@ -255,7 +305,12 @@ class Tracker:
     def load_geo_json(self,geo_json):
         try:
             with open(geo_json) as f:
-                self.geo_json=json.load(f)
+                
+                # self.geo_json=json.load(f)
+                self.geo_json=gpxpy.parse(f)
+            for track in self.geo_json.tracks:
+                for segment in track.segments:
+                    self.geo_json=segment.points
         except FileNotFoundError as e:
             print("FileNotFoundError : {0}".format(e))
             raise Exception("JSON is None")
@@ -269,13 +324,18 @@ class Tracker:
         return mask_index
     
     def add_mask_at(self,mask,index):
+        print(self.masks)
         print(self.masks[index])
-        self.masks[index].insert(0,mask)
-        self.masks[index][0] = self.masks[index][1]
+        # self.masks[index].insert(0,mask)
+        print(type(mask),mask)
+        self.masks[index][0].id = mask.id
+        self.masks[index].append(mask)
         print(self.masks[index])
 
+
+
     def pick_mask(self,mask):
-        return mask[0]
+        return mask[len(mask)-1]
     
     def __repr__(self):
         return str(self.masks)

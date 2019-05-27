@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 from matplotlib import patches,  lines
 from matplotlib.patches import Polygon
 import IPython.display
+from mrcnn.config import Config
 
 # Root directory of the project
 ROOT_DIR = os.path.abspath("../")
@@ -27,7 +28,7 @@ from mrcnn import utils
 import mrcnn.model as modellib
 from mrcnn import visualize
 # Import COCO config
-sys.path.append(os.path.join(ROOT_DIR, "samples/coco/"))  # To find local version
+sys.path.append(os.path.join(ROOT_DIR, "../coco/"))  # To find local version
 import coco
 
 # Directory to save logs and trained model
@@ -42,7 +43,26 @@ if not os.path.exists(COCO_MODEL_PATH):
 # Directory of images to run detection on
 IMAGE_DIR = os.path.join(ROOT_DIR, "images")
 
-class InferenceConfig(coco.CocoConfig):
+class CocoConfig(Config):
+    """Configuration for training on MS COCO.
+    Derives from the base Config class and overrides values specific
+    to the COCO dataset.
+    """
+    # Give the configuration a recognizable name
+    NAME = "coco"
+
+    # We use a GPU with 12GB memory, which can fit two images.
+    # Adjust down if you use a smaller GPU.
+    IMAGES_PER_GPU = 2
+
+    # Uncomment to train on 8 GPUs (default is 1)
+    # GPU_COUNT = 8
+
+    # Number of classes (including background)
+    NUM_CLASSES = 1 + 80  # COCO has 80 classes
+
+
+class InferenceConfig(CocoConfig):
     # Set batch size to 1 since we'll be running inference on
     # one image at a time. Batch size = GPU_COUNT * IMAGES_PER_GPU
     GPU_COUNT = 1
@@ -200,49 +220,109 @@ def display_instances(image, boxes, masks, class_ids, class_names,
 
     return infos
 
+# video_infos.py
+import json
+import gpxpy
+import gpxpy.gpx
 
-# Load a random image from the images folder
-IMAGE_DIR = "./vdd"
-file_names = next(os.walk(IMAGE_DIR))[2]
 
-# sort list
-for i in range(len(file_names)):
-    for j in range(len(file_names)):
-        if(file_names[i].endswith(".jpg") and file_names[j].endswith(".jpg")):
-            if( int(file_names[i].replace("0a0c3694-f3444902","").replace(".jpg","")) < int(file_names[j].replace("0a0c3694-f3444902","").replace(".jpg","")) ):
-                temp=file_names[i]
-                file_names[i]=file_names[j]
-                file_names[j]=temp
+class VideoInfos:
+    def __init__(self,file):
+        with open(file) as data_file:
 
-import video_infos
-vi=video_infos.VideoInfos("../dataset/vdd/info/0a0c3694-f3444902.json")
-file_names=vi.select_genel(file_names)
+            gpx = gpxpy.parse(data_file)
 
-print("video_infos test #############")
-print(len(file_names),vi.len)
+   
+            for track in gpx.tracks:
+                for segment in track.segments:           
+                    self.len = len(segment.points)
+                    break
+                    # for point in segment.points:
+                    #     print(point.latitude,point.longitude,point.time)
+            
+            # self.data = json.load(data_file)
+            # self.len = len(self.data['locations'])
 
-image_infos=[]
-for file_name in file_names:
-    if file_name.endswith('.jpg'):
-        image = skimage.io.imread(os.path.join(IMAGE_DIR, file_name))
+            self.data = ""
+            print(self.len)
+        
+    def __repr__(self):
+        pass
+        # print(self.data.keys())
+        # print(len(self.data['locations']))
 
-        # Run detection
-        results = model.detect([image], verbose=1)
-        r = results[0]
+    # 입력 이미지를 json의 타임스탬프 기준으로 평준하게/골고루 맞춰줌 
+    def select_genel(self,input_images):
+        len_input_images = len(input_images)
 
-        # print(results)
-        # print(len(r['rois']))
-        # print(len(r['class_ids']))
-        # print(len(r['scores']))
-        # print((r['masks'][0][0:1]))
+        new_list = []
+    
+        if( len_input_images > self.len ):
+            rate = len_input_images / self.len
 
-        # Visualize results
-        infos=display_instances(image, r['rois'], r['masks'], r['class_ids'], class_names, r['scores'])
-        # print("infos:",infos)
-        file_info={'file_name':file_name,'infos':infos}
-        image_infos.append(file_info)
+            idx = 0
+            while(True):
+                if(round(idx) >= len(input_images) ):
+                    break
 
-with open('infos.json','w') as f:
-    json.dump(image_infos,f,ensure_ascii=False)
-print(image_infos)
+                new_list.append( input_images[round(idx)] )
+                idx+=rate
+                    
+
+            
+            return new_list
+        else:
+            # 이미지 개수가 모자람
+            pass
+
+
+def run(dirpath,filename):
+    # Load a random image from the images folder
+    IMAGE_DIR = "./vdd"
+    file_names = next(os.walk(dirpath))[2]
+
+    # sort list
+    for i in range(len(file_names)):
+        for j in range(len(file_names)):
+            if(file_names[i].endswith(".jpg") and file_names[j].endswith(".jpg")):
+                if( file_names[i] == "output.jpg"):continue
+                
+                try:
+                    if( int(file_names[i].replace(filename,"").replace(".jpg","")) < int(file_names[j].replace(filename,"").replace(".jpg","")) ):
+                        temp=file_names[i]
+                        file_names[i]=file_names[j]
+                        file_names[j]=temp
+                except ValueError as e:
+                    print(e)
+
+    vi=VideoInfos(dirpath+"output.gpx")
+    file_names=vi.select_genel(file_names)
+
+    print("video_infos test #############")
+    print(len(file_names),vi.len)
+
+    image_infos=[]
+    for file_name in file_names:
+        if file_name.endswith('.jpg'):
+            image = skimage.io.imread(os.path.join(dirpath, file_name))
+
+            # Run detection
+            results = model.detect([image], verbose=1)
+            r = results[0]
+
+            # print(results)
+            # print(len(r['rois']))
+            # print(len(r['class_ids']))
+            # print(len(r['scores']))
+            # print((r['masks'][0][0:1]))
+
+            # Visualize results
+            infos=display_instances(image, r['rois'], r['masks'], r['class_ids'], class_names, r['scores'])
+            # print("infos:",infos)
+            file_info={'file_name':file_name,'infos':infos}
+            image_infos.append(file_info)
+
+    with open(dirpath+'infos.json','w') as f:
+        json.dump(image_infos,f,ensure_ascii=False)
+    print(image_infos)
 

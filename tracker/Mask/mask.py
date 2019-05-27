@@ -10,7 +10,10 @@ class Mask:
         #     self.id = str(id)
         # else:
         #     self.id = label + str(id)
-        self.id = id
+        try:
+            self.id = str(id) + label
+        except TypeError as e:
+            self.id = id
 
         self.width=width
         self.height=height
@@ -46,6 +49,7 @@ class Mask:
         self.color = (r(),r(),r(),255)
 
         self.distance = None
+        self.distance_vertical_value = 0.0135
 
         self.timestamp = timestamp
         if( lat == None or lon == None ):                                                                                                                          
@@ -81,7 +85,20 @@ class Mask:
         distance = R * c
 
         return distance
+    def get_distance_vertical_angle(self,box,image_size):
+        box_height = box["y"]+box["h"]
+        image_height = image_size["height"]
 
+        self.distance = ( image_height - box_height ) * self.distance_vertical_value
+    def is_center(self):
+        box_center = ( self.x+self.x+self.width ) / 2
+        image_width = self.src_image_width
+
+        r = round( box_center / image_width * 100 )
+        if( r < 40 or r > 60):
+            return False
+        else:
+            return True
     def rotation_matrix(self,x,y,angle):
         # https://en.wikipedia.org/wiki/Rotation_matrix
         # return x,y
@@ -102,7 +119,15 @@ class Mask:
         else:
             d = l * ( math.sin(self.angle) * math.sin(t.angle) ) / math.sin(self.angle + t.angle)
         # print(d," = ", l ,self.angle,t.angle,self.angle ,t.angle) 
-        self.distance = d
+        if(d * 1000 <= 1 or d * 1000 >= 100):
+            im = {"x":self.x,"y":self.y,"w":self.width,"h":self.height}
+            imgs = {"width":self.src_image_width,"height":self.src_image_height}
+            self.get_distance_vertical_angle(im,imgs)
+            print("vvv")
+        else:
+            self.distance = d
+            print("nnn")
+
 
 
 
