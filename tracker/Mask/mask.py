@@ -2,10 +2,11 @@ from tracker.Mask.config import Config
 from PIL import Image,ImageDraw,ImageChops
 import math, operator
 import random
+import cv2
 
 
 class Mask:
-    def __init__(self,id=0,x=0,y=0,width=0,height=0,label=None,src_image="",lat=None,lon=None,timestamp=None):
+    def __init__(self,id=0,x=0,y=0,width=0,height=0,label=None,src_image="",image=None,lat=None,lon=None,timestamp=None):
         # if(label):
         #     self.id = str(id)
         # else:
@@ -19,7 +20,8 @@ class Mask:
         self.height=height
         self.x=x
         self.y=y
-
+        
+        self.image=image
         self.src_image=src_image
         self.src_image_width=None
         self.src_image_height=None
@@ -60,6 +62,7 @@ class Mask:
 
         if(src_image):
             self.load_image()
+        
     def to_dict(self):
         return {"label":self.label,"x":self.locate_x,"y":self.locate_y,"lat":self.lat,"lon":self.lon}
     # 두이미지의 삼각측량법으로 거리를 구할때는 각도와 속도가 필요함
@@ -113,20 +116,19 @@ class Mask:
 
         l = self.get_distance_by_lat_long(t)
         
-
+        # 0이나오면 거리가 0이기 때문에...에러..
         if( math.sin(self.angle + t.angle) == 0 ):
             d = -1
         else:
             d = l * ( math.sin(self.angle) * math.sin(t.angle) ) / math.sin(self.angle + t.angle)
+
         # print(d," = ", l ,self.angle,t.angle,self.angle ,t.angle) 
         if(d * 1000 <= 1 or d * 1000 >= 100):
             im = {"x":self.x,"y":self.y,"w":self.width,"h":self.height}
             imgs = {"width":self.src_image_width,"height":self.src_image_height}
             self.get_distance_vertical_angle(im,imgs)
-            print("vvv")
         else:
             self.distance = d
-            print("nnn")
 
 
 
@@ -195,6 +197,9 @@ class Mask:
     
     def load_image(self):
         try:
+            img = None
+            if(self.src_image==None):
+                img = Image.fromstring("L",cv2.GetSize(self.image),self.image.tostring())
             img=Image.open(self.src_image)
             img=self.image_flip_90_degree(img)
 
@@ -205,6 +210,7 @@ class Mask:
             return None
         else:
             self.croped_img=img.crop((self.x,self.y,self.x+self.width,self.y+self.height))
+            
     def get_histogram_with(self,t_mask):
         """
             Calculate the root-mean-square difference between two image's histogram

@@ -275,6 +275,12 @@ class VideoInfos:
             # 이미지 개수가 모자람
             pass
 
+def detectObject( frame , modelName ):
+    results = model.detect( [frame], verbose=1 )
+    r = results[0]
+    infos = display_instances(frame , r['rois'], r['masks'], r['class_ids'], class_names, r['scores'])
+    return infos
+    
 
 def run(dirpath,filename):
     # Load a random image from the images folder

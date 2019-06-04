@@ -10,14 +10,17 @@ import gpxpy.gpx
 import time
 
 class Tracker:
-    def __init__(self,default_path,json_name,geo_json):
+    def __init__(self,default_path,json_name,geo_json,detectedObjectLocArray=None):
+        if(detectedObjectLocArray==None):
+            self.default_path=default_path
+            self.json_path=default_path+"/"+json_name
+            self.load_json(self.json_path)
+            self.load_geo_json(default_path+"/"+geo_json)
+        else:
+            self.detectedOnjectLocArray = detectedObjectLocArray
+
         self.masks=[]
-        self.default_path=default_path
-        self.json_path=default_path+"/"+json_name
-
-        self.load_json(self.json_path)
-        self.load_geo_json(default_path+"/"+geo_json)
-
+        
         self.save_file_index_no=0
         # activation max val
         self.ACTIVATION_MAX = 10
@@ -27,6 +30,7 @@ class Tracker:
 
         self.currentTimestamp = None
         self.currentDirection = None
+
     def idCounter(self):
         self.idCount+=1
         return self.idCount
@@ -51,6 +55,44 @@ class Tracker:
         if ( R < 0 ):
             return 360 + R
         return R 
+
+
+#     for i in json['infos']:
+# mask=Mask(id=self.idCounter(),x=i['box'][0],y=i['box'][1],width=i['box'][2]-i['box'][0],height=i['box'][3]-i['box'][1],
+# label=i['label'],src_image="{0}".format(file_name),lat=geo_json.latitude,lon=geo_json.longitude,
+# timestamp=geo_json.time)
+# self.create_mask(mask) 
+    def traking(self):
+        for idx,info in enumerate(self.detectedOnjectLocArray):
+            self.currentTimestamp = info[2]
+            self.currentDirection = self.detectedOnjectLocArray[idx][3][3]
+
+            for detectInfo in info[0]:
+                mask = Mask(
+                    id=self.idCounter(),
+                    x=detectInfo['box'][0],
+                    y=detectInfo['box'][1],
+                    width=detectInfo['box'][2]-detectInfo['box'][0],
+                    height=detectInfo['box'][3]-detectInfo['box'][1],
+                    label=detectInfo['label'],
+                    src_image=None,
+                    image=info[4],
+                    lat=info[3][0],
+                    lon=info[3][1],
+                    timestamp=info[3][2]
+                    )
+                self.create_mask(mask)
+                self.sort_masks()
+                self.figure_distance()
+
+            print(self.masks)
+            self.writeJson(self.currentTimestamp,self.geo_json[idx].longitude,self.geo_json[idx].latitude)
+
+            # output image
+            # self.display_current_figure(file_name)
+        return self.saveJsonData
+    
+    # deprecated
     def run(self):
         self.saveJsonDataInit()
         for idx,file_info in enumerate(self.json):
@@ -93,7 +135,7 @@ class Tracker:
 
 
             # output image
-            self.display_current_figure(file_name)
+            # self.display_current_figure(file_name)
         
         # print for debuging
         for m in self.masks:
@@ -149,10 +191,12 @@ class Tracker:
 
                 mask_list[0].get_absolute_position( self.currentDirection )
                 print(mask_list[0].locate_x , mask_list[0].locate_y)
+
                 if ( mask_list[len(mask_list)-1].is_center ):
                     im = {"x":mask_list[len(mask_list)-1].x,"y":mask_list[len(mask_list)-1].y,"w":mask_list[len(mask_list)-1].width,"h":mask_list[len(mask_list)-1].height}
                     imgs = {"width":mask_list[len(mask_list)-1].src_image_width,"height":mask_list[len(mask_list)-1].src_image_height}
                     mask_list[len(mask_list)-1].get_distance_vertical_angle(im,imgs)
+
     def save_json(self):
         # DEL
         # jsonlist=[]
@@ -241,6 +285,7 @@ class Tracker:
                     if mask2.activation == -1:
                         print("마스크 하나가 비활성화 상태임")
                         continue
+                    # 이것도 비활성화임 ....
                     if mask2.activation == -2:
                         continue
                     if mask.there_not_equal(mask2):
@@ -273,7 +318,6 @@ class Tracker:
             mask.increase_activation()  
             if( mask.activation >= self.ACTIVATION_MAX ):
                 mask.disactivation()
-        
 
     def make_mask_from_json(self,file_name,json,geo_json=None):
         # frame_no=masks_info['frame']
